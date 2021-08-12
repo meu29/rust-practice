@@ -1,5 +1,4 @@
 use::seed::{prelude::*, *};
-use rand::prelude::*;
 
 struct Model {
     items: Vec<Item>,
