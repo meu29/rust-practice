@@ -1,24 +1,48 @@
 use::seed::{prelude::*, *};
+use rand::Rng;
+
+/* ディレクトリではなくファイルの方を見ている */
+mod layouts;
 
 struct Model {
     items: Vec<Item>,
     name: String,
     price_string: String,
+    tag: String,
     message: String,
+    selected_tag: String
 }
 
 #[derive(Clone)]
 struct Item {
     id: String,
     name: String,
+    tag: String,
     price: i32
 }
 
 enum Msg {
     SetName(String),
     SetPrice(String),
+    SetTag(String),
     Post,
+    ChangeSelectedTag(String),
     Delete(String)
+}
+
+fn make_id() -> String {
+
+    let chars: &str = "abcdefghijklmnopqrstuvwxyz1234567890";
+    let mut id: String = "".to_string();
+    let mut randnum;
+
+    for _ in 0..15 {
+        randnum = rand::thread_rng().gen_range(0, chars.len() - 2);
+        id += &chars[randnum .. randnum + 1];
+    }
+
+    return id;
+
 }
 
 fn init(_: Url, _: &mut impl Orders<Msg>) -> Model {
@@ -26,7 +50,9 @@ fn init(_: Url, _: &mut impl Orders<Msg>) -> Model {
         items: Vec::new(),
         name: "".to_string(),
         price_string: "0".to_string(),
+        tag: "".to_string(),
         message: "".to_string(),
+        selected_tag: "".to_string()
     }
 }
 
@@ -34,6 +60,7 @@ fn update(msg: Msg, model: &mut Model, _: &mut impl Orders<Msg>) {
     match msg {
         Msg::SetName(name) => model.name = name,
         Msg::SetPrice(price_string) => model.price_string = price_string,
+        Msg::SetTag(tag) => model.tag = tag,
         Msg::Post => {
             if model.name == "" {
                 model.message = "商品/サービス名が入力されていません".to_string();
@@ -44,19 +71,29 @@ fn update(msg: Msg, model: &mut Model, _: &mut impl Orders<Msg>) {
                     Ok(price) => {
                         if price >= 0 {
                             model.items.push(Item {
-                                id: model.items.len().to_string(),
+                                id: make_id(),
                                 name: model.name.clone(),
+                                tag: model.tag.clone(),
                                 price: price
                             });
                             model.name = "".to_string();
                             model.price_string = "0".to_string();
+                            model.tag = "".to_string();
                             model.message = "".to_string();
+                            model.selected_tag = "".to_string();
                         } else {
                             model.message = "商品/サービス価格は0以上の数値を入力してください".to_string()
                         }
                     } 
                     Err(_) => model.message = "商品/サービス価格は半角数字で入力してください".to_string()
                 }
+            }
+        },
+        Msg::ChangeSelectedTag(tag) => {
+            if model.selected_tag == tag {
+                model.selected_tag = "".to_string()
+            } else {
+                model.selected_tag = tag
             }
         },
         Msg::Delete(id) => {
@@ -66,89 +103,85 @@ fn update(msg: Msg, model: &mut Model, _: &mut impl Orders<Msg>) {
     }
 }
 
-fn view(model: &Model) -> Node<Msg> {
+fn form_view(name: &str, price_string: &str, tag: &str, message: &str) -> Node<Msg> {
     div![
-        nav![
-            attrs!{ At::Class => "navbar navbar-dark bg-dark" },
-            style!{ St::MarginBottom => "3%" },
-            div![
-                attrs!{ At::Class => "container-fluid" },
-                a!{
-                    attrs!{ At::Class => "navbar-brand", At::Href => "/" },
-                    "Buy Log"
-                }
-            ]
+        style!{ St::Width => "90%", St::MarginTop => "auto", St::MarginLeft => "auto", St::MarginRight => "auto", St::MarginBottom => "3%" },
+        h4!["購入履歴を追加", style!{ St::MarginBottom => "3%" }],
+        div![
+            attrs!{ At::Class => "mb-3" },
+            style!{ St::MarginBottom => "2%" },
+            label!["商品/サービス名"],
+            input![attrs!{ At::Class => "form-control", At::Value => name }, input_ev(Ev::Input, Msg::SetName)],
         ],
         div![
-            style!{ St::Width => "90%", St::MarginTop => "auto", St::MarginLeft => "auto", St::MarginRight => "auto", St::MarginBottom => "3%" },
-            h4![
-                "購入履歴を追加"
-            ],
-            div![
-                attrs!{ At::Class => "mb-3" },
-                style!{ St::MarginBottom => "2%" },
-                label![
-                    "商品/サービス名",
+            style!{ St::Display => "flex", St::MarginBottom => "2%" },
+            /* 子要素が2つ以上ある場合はベクタを使う */
+            vec![
+                div![
+                    label!["商品/サービス価格"],
+                    input![attrs!{ At::Class => "form-control", At::Value => price_string }, input_ev(Ev::Input, Msg::SetPrice)],
                 ],
-                input![
-                    attrs!{ At::Class => "form-control", At::Value => model.name },
-                    input_ev(Ev::Input, Msg::SetName)
+                div![
+                    label!["タグ"],
+                    input![attrs!{ At::Class => "form-control", At::Value => tag }, input_ev(Ev::Input, Msg::SetTag)]
                 ],
             ],
-            div![
-                style!{ St::MarginBottom => "2%" },
-                label![
-                    "商品/サービス価格"
-                ],
-                input![
-                    attrs!{ At::Class => "form-control", At::Value => model.price_string },
-                    input_ev(Ev::Input, Msg::SetPrice)
-                ],
-            ],
-            button![
-                "送信",
-                ev(Ev::Click, |_| Msg::Post),
-                attrs!{ At::Class => "btn btn-primary" }
-            ],
-            p![
-                model.message.clone()
-            ]
         ],
+        button![
+            "送信",
+            attrs!{ At::Class => "btn btn-primary" },
+            ev(Ev::Click, |_| Msg::Post)
+        ],
+        p![message]
+    ]
+}
+
+fn view(model: &Model) -> Vec<Node<Msg>> {
+    vec![
+        layouts::header::view(),
+        form_view(&model.name, &model.price_string, &model.tag, &model.message),
+        /* 構造体要素のベクタを引数に取るビュー関数に分割しようとしたらエラーになった */
         div! [
             style!{ St::Width => "90%", St::Margin => "auto" },
-            h4![
-                "購入履歴",
-                style!{ St::MarginBottom => "3%" }
-            ],
-            /*
-            if model.items.len() == 0 {
-                p![
-                    "購入履歴はありません"
-                ]
-            },
-            */
-            model.items.clone().into_iter().map(| item | {
-                div![
-                    attrs!{ At::Class => "card" },
-                    div![
-                        attrs!{ At::Class => "card-body" },
-                        h5![
-                            /* ここをcloneしないと消去ボタンでコンパイルエラー */
-                            item.name.clone(),
-                            attrs!{ At::Class => "card-title" }
-                        ],
-                        p![
-                            item.price,
-                            attrs!{ At::Class => "card-text" }
-                        ],
-                        button![
-                            "削除",
-                            ev(Ev::Click, |_| Msg::Delete(item.id)),
-                            attrs!{ At::Class => "btn btn-danger" }
-                        ]
+            h4!["購入履歴", style!{ St::MarginBottom => "3%" }],
+            p![if model.selected_tag == "".to_string() {"全購入履歴".to_string()} else {format!("タグ「{}」が付いた購入履歴 再度タグをクリックすると絞り込みが解除されます",  &model.selected_tag)}],
+            table![
+                attrs!{ At::Class => "table" },
+                thead![
+                    tr![
+                        th!["商品/サービス名", attrs!{ At::Scope => "col" }],
+                        th!["商品/サービス価格", attrs!{ At::Scope => "col" }],
+                        th!["タグ", attrs!{ At::Scope => "col" }],
+                        th!["", attrs!{ At::Scope => "col" }],
                     ],
+                ],
+                tbody![
+                    model.items.clone().into_iter().map(| item | {
+                        /* ブロックレベル要素で必ずラップする(divなど) */
+                        tr![
+                            style!{ St::Display => if model.selected_tag == "" || item.tag == model.selected_tag {""} else {"None"} },
+                            td![&item.name],
+                            td![&item.price],
+                            td![
+                                button![
+                                    &item.tag, 
+                                    attrs!{ At::Class => "btn btn-link" },
+                                    ev(Ev::Click, |_| Msg::ChangeSelectedTag(item.tag))
+                                ]
+                            ],
+                            td![
+                                button![
+                                    "削除",
+                                    attrs!{ At::Class => "btn btn-danger" },
+                                    /* ChangeSelectedTag()の引数にitemの値を取っているのでitemの所有権が関数側にムーブしてしまっている? */
+                                    /* 参照を引数に取るように変更するとエラーになった */
+                                    //ev(Ev::Click, |_| Msg::Delete(item.id)),
+                                ]
+                            ]
+                        ]
+                    })
                 ]
-            })
+            ]
         ]
     ]
 }
