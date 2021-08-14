@@ -1,5 +1,5 @@
 trunk serve<br>
-elmのアーキテクチャを移植したフロントエンド用rustフレームワーク<br>
+seed elmのアーキテクチャを移植したフロントエンド用rustフレームワーク<br>
 構造体を要素に持つベクタ(可変長配列)はクローンできない<br>
 input参考 //https://crates.io/crates/seed/0.1.1<br>
 Model -> 状態<br>
